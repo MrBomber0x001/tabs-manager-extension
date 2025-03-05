@@ -1,23 +1,107 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Tab URL Downloader</title>
+    <title>Ultimate Tab Manager</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
     <style>
       body {
-        width: 300px;
-        padding: 10px;
-        text-align: center;
-      }
-      button {
-        padding: 10px;
-        margin: 10px;
-        font-size: 16px;
+        width: 500px;
+        max-height: 600px;
+        overflow-y: auto;
       }
     </style>
   </head>
-  <body>
-    <h2>Download Open Tabs</h2>
-    <button id="downloadTabs">Download Tabs</button>
+  <body class="bg-gray-100 p-4">
+    <div class="container mx-auto">
+      <h1 class="text-2xl font-bold mb-4">Ultimate Tab Manager</h1>
+
+      <!-- Filtering Section -->
+      <div class="mb-4">
+        <h2 class="text-xl mb-2">Filters</h2>
+        <div class="grid grid-cols-2 gap-2">
+          <select id="windowFilter" class="p-2 border rounded">
+            <option value="all">All Windows</option>
+            <option value="current">Current Window</option>
+          </select>
+
+          <select id="domainFilter" class="p-2 border rounded">
+            <option value="all">All Domains</option>
+          </select>
+
+          <select id="timeFilter" class="p-2 border rounded">
+            <option value="all">All Times</option>
+            <option value="1hour">Last Hour</option>
+            <option value="24hours">Last 24 Hours</option>
+            <option value="week">Last Week</option>
+          </select>
+
+          <select id="sortBy" class="p-2 border rounded">
+            <option value="title">Sort by Title</option>
+            <option value="url">Sort by URL</option>
+            <option value="domain">Sort by Domain</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabs List -->
+      <div id="tabsList" class="mb-4 max-h-64 overflow-y-auto">
+        <!-- Tabs will be dynamically populated here -->
+      </div>
+
+      <!-- Export Options -->
+      <div class="mb-4">
+        <h2 class="text-xl mb-2">Export Formats</h2>
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            id="exportMarkdown"
+            class="bg-blue-500 text-white p-2 rounded"
+          >
+            Markdown
+          </button>
+          <button id="exportCSV" class="bg-green-500 text-white p-2 rounded">
+            CSV
+          </button>
+          <button id="exportJSON" class="bg-purple-500 text-white p-2 rounded">
+            JSON
+          </button>
+          <button id="exportHTML" class="bg-red-500 text-white p-2 rounded">
+            HTML
+          </button>
+          <button
+            id="exportBookmarks"
+            class="bg-yellow-500 text-white p-2 rounded"
+          >
+            Bookmarks
+          </button>
+          <button id="exportText" class="bg-gray-500 text-white p-2 rounded">
+            Plain Text
+          </button>
+        </div>
+      </div>
+
+      <!-- Advanced Actions -->
+      <div class="grid grid-cols-2 gap-2">
+        <button id="selectAll" class="bg-indigo-500 text-white p-2 rounded">
+          Select All
+        </button>
+        <button id="deselectAll" class="bg-pink-500 text-white p-2 rounded">
+          Deselect All
+        </button>
+        <button id="closeSelected" class="bg-red-600 text-white p-2 rounded">
+          Close Selected
+        </button>
+        <button
+          id="bookmarkSelected"
+          class="bg-green-600 text-white p-2 rounded"
+        >
+          Bookmark Selected
+        </button>
+      </div>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>

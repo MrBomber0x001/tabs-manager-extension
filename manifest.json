@@ -1,13 +1,24 @@
 {
     "manifest_version": 3,
-    "name": "Tab URL Downloader",
-    "version": "1.0",
-    "description": "Download all open tabs with their URLs and titles",
+    "name": "Ultimate Tab Manager",
+    "version": "1.0.0",
+    "description": "Comprehensive tab management and export tool",
     "permissions": [
         "tabs",
-        "downloads"
+        "storage",
+        "downloads",
+        "bookmarks",
+        "activeTab",
+        "favicon"
+    ],
+    "host_permissions": [
+        "<all_urls>"
     ],
     "action": {
         "default_popup": "popup.html"
-    }
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "options_page": "options.html"
 }
