@@ -1,0 +1,13 @@
+{
+    "manifest_version": 3,
+    "name": "Tab URL Downloader",
+    "version": "1.0",
+    "description": "Download all open tabs with their URLs and titles",
+    "permissions": [
+        "tabs",
+        "downloads"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    }
+}
