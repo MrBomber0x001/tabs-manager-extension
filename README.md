@@ -42,9 +42,11 @@ How to use the Tabs Manager Extension after installation.
 ### Screenshots
 
 Automatic detection of duplicated tabs
+
 ![overview](assets/image1.png)
 
 Searching over tabs
+
 ![searching](assets/image2.png)
 
 ## Contributing
