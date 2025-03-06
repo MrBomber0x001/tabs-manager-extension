@@ -16,9 +16,8 @@
     ],
     "action": {
         "default_popup": "popup.html"
-    },
-    "background": {
-        "service_worker": "background.js"
-    },
-    "options_page": "options.html"
+    }
+    // "background": {
+    //     "service_worker": "background.js"
+    // }
 }

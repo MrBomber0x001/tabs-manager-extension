@@ -12,7 +12,33 @@ class TabManager {
     constructor() {
         this.tabs = [];
         this.domainCounts = {};
+        this.searchInitialized = false;
+        this.setupOfflineSupport();
         this.initializeEventListeners();
+    }
+
+    setupOfflineSupport() {
+        // Inline critical Tailwind CSS for offline use
+        const inlinedCSS = `
+        *,::after,::before{box-sizing:border-box;border:0 solid}
+        .container{width:100%;margin-right:auto;margin-left:auto;padding-right:1rem;padding-left:1rem}
+        .bg-gray-100{background-color:#f3f4f6}
+        .p-4{padding:1rem}
+        .text-2xl{font-size:1.5rem;line-height:2rem}
+        .mb-4{margin-bottom:1rem}
+        .grid{display:grid}
+        .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .gap-2{gap:0.5rem}
+        .p-2{padding:0.5rem}
+        .border{border-width:1px}
+        .rounded{border-radius:0.25rem}
+        .text-white{color:#fff}
+        .bg-blue-500{background-color:#3b82f6}
+      `;
+
+        const styleEl = document.createElement('style');
+        styleEl.textContent = inlinedCSS;
+        document.head.appendChild(styleEl);
     }
 
     async loadTabs() {
@@ -33,6 +59,13 @@ class TabManager {
 
                 this.populateDomainFilter();
                 this.renderTabs();
+                // Only initialize search if not already done
+                if (!this.searchInitialized) {
+                    this.initializeSearchFeature();
+                }
+
+                // Add duplicate detection
+                this.createDuplicateSection();
                 resolve(this.tabs);
             });
         });
@@ -40,6 +73,7 @@ class TabManager {
 
     populateDomainFilter() {
         const domainFilter = document.getElementById('domainFilter');
+        domainFilter.innerHTML = '<option value="all">All Domains</option>';
         Object.keys(this.domainCounts).forEach(domain => {
             const option = document.createElement('option');
             option.value = domain;
@@ -48,35 +82,75 @@ class TabManager {
         });
     }
 
-    renderTabs() {
-        const tabsList = document.getElementById('tabsList');
-        tabsList.innerHTML = '';
+    initializeSearchFeature() {
+        // Check if search has already been initialized
+        if (this.searchInitialized) return;
 
-        const windowFilter = document.getElementById('windowFilter').value;
-        const domainFilter = document.getElementById('domainFilter').value;
-        const timeFilter = document.getElementById('timeFilter').value;
-        const sortBy = document.getElementById('sortBy').value;
+        const tabsListContainer = document.getElementById('tabsList');
 
-        let filteredTabs = this.tabs.filter(tab => {
-            // Window filter
-            if (windowFilter === 'current' && !tab.active) return false;
+        // Check if search input already exists
+        if (document.getElementById('tabSearchInput')) return;
 
-            // Domain filter
-            if (domainFilter !== 'all' && tab.domain !== domainFilter) return false;
+        const searchContainer = document.createElement('div');
+        searchContainer.className = 'mb-4';
 
-            // Time filter
-            const now = Date.now();
-            switch (timeFilter) {
-                case '1hour':
-                    return now - tab.timestamp <= 3600000;
-                case '24hours':
-                    return now - tab.timestamp <= 86400000;
-                case 'week':
-                    return now - tab.timestamp <= 604800000;
-                default:
-                    return true;
-            }
+        const searchInput = document.createElement('input');
+        searchInput.id = 'tabSearchInput'; // Add an ID for easy reference
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search tabs...';
+        searchInput.className = 'w-full p-2 border rounded';
+
+        searchContainer.appendChild(searchInput);
+
+        // Insert search input at the top of the tabs list container
+        tabsListContainer.parentNode.insertBefore(searchContainer, tabsListContainer);
+
+        // Advanced search functionality
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            const searchResults = this.tabs.filter(tab => {
+                const matchesTitle = tab.title.toLowerCase().includes(searchTerm);
+                const matchesUrl = tab.url.toLowerCase().includes(searchTerm);
+                const matchesDomain = tab.domain.toLowerCase().includes(searchTerm);
+
+                return matchesTitle || matchesUrl || matchesDomain;
+            });
+
+            // Render search results
+            this.renderTabs(searchResults);
         });
+
+        // Mark search as initialized
+        this.searchInitialized = true;
+    }
+
+    applyFilters(windowFilter, domainFilter, timeFilter, sortBy) {
+        let filteredTabs = this.tabs;
+
+        // Window filter
+        if (windowFilter === 'current') {
+            filteredTabs = filteredTabs.filter(tab => tab.active);
+        }
+
+        // Domain filter
+        if (domainFilter !== 'all') {
+            filteredTabs = filteredTabs.filter(tab => tab.domain === domainFilter);
+        }
+
+        // Time filter
+        const now = Date.now();
+        switch (timeFilter) {
+            case '1hour':
+                filteredTabs = filteredTabs.filter(tab => now - tab.timestamp <= 3600000);
+                break;
+            case '24hours':
+                filteredTabs = filteredTabs.filter(tab => now - tab.timestamp <= 86400000);
+                break;
+            case 'week':
+                filteredTabs = filteredTabs.filter(tab => now - tab.timestamp <= 604800000);
+                break;
+        }
 
         // Sorting
         switch (sortBy) {
@@ -89,6 +163,24 @@ class TabManager {
             case 'domain':
                 filteredTabs.sort((a, b) => a.domain.localeCompare(b.domain));
                 break;
+        }
+
+        return filteredTabs;
+    }
+
+    renderTabs(preFilteredTabs = null) {
+        const tabsList = document.getElementById('tabsList');
+        tabsList.innerHTML = '';
+
+        // Use provided preFilteredTabs or apply current filters
+        let filteredTabs = preFilteredTabs;
+        if (!filteredTabs) {
+            const windowFilter = document.getElementById('windowFilter').value;
+            const domainFilter = document.getElementById('domainFilter').value;
+            const timeFilter = document.getElementById('timeFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
+
+            filteredTabs = this.applyFilters(windowFilter, domainFilter, timeFilter, sortBy);
         }
 
         filteredTabs.forEach(tab => {
@@ -106,15 +198,25 @@ class TabManager {
             const label = document.createElement('label');
             label.className = 'flex-grow truncate';
             label.innerHTML = `
-          <span class="font-bold">${tab.title}</span>
+          <span class="font-bold">${this.escapeHtml(tab.title)}</span>
           <br>
-          <small class="text-gray-500">${tab.url}</small>
+          <small class="text-gray-500">${this.escapeHtml(tab.url)}</small>
         `;
 
             tabElement.appendChild(checkbox);
             tabElement.appendChild(label);
             tabsList.appendChild(tabElement);
         });
+    }
+
+    // Utility method to escape HTML to prevent XSS
+    escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     initializeEventListeners() {
@@ -165,6 +267,12 @@ class TabManager {
 
     exportTabs(format) {
         const selectedTabs = this.tabs.filter(tab => tab.selected);
+
+        if (selectedTabs.length === 0) {
+            alert('Please select at least one tab to export.');
+            return;
+        }
+
         let content = '';
 
         switch (format) {
@@ -204,7 +312,7 @@ class TabManager {
       <tr><th>Title</th><th>URL</th><th>Domain</th></tr>
       ${selectedTabs.map(tab => `
         <tr>
-          <td>${tab.title}</td>
+          <td>${this.escapeHtml(tab.title)}</td>
           <td><a href="${tab.url}">${tab.url}</a></td>
           <td>${tab.domain}</td>
         </tr>
@@ -244,6 +352,153 @@ class TabManager {
         }, () => {
             URL.revokeObjectURL(url);
         });
+    }
+
+    // Advanced Search Method
+    searchTabs(options = {}) {
+        const {
+            title = '',
+            url = '',
+            domain = '',
+            minTabCount = 0,
+            maxTabCount = Infinity,
+            openedAfter = null,
+            openedBefore = null
+        } = options;
+
+        return this.tabs.filter(tab => {
+            const matchesTitle = title ? tab.title.toLowerCase().includes(title.toLowerCase()) : true;
+            const matchesUrl = url ? tab.url.toLowerCase().includes(url.toLowerCase()) : true;
+            const matchesDomain = domain ? tab.domain.toLowerCase().includes(domain.toLowerCase()) : true;
+
+            // More advanced filtering options
+            const matchesTabCount = this.domainCounts[tab.domain] >= minTabCount &&
+                this.domainCounts[tab.domain] <= maxTabCount;
+
+            const matchesTimeframe = (!openedAfter || tab.timestamp > openedAfter) &&
+                (!openedBefore || tab.timestamp < openedBefore);
+
+            return matchesTitle && matchesUrl && matchesDomain &&
+                matchesTabCount && matchesTimeframe;
+        });
+    }
+
+    findDuplicateUrls() {
+        // Group tabs by URL
+        const urlGroups = this.tabs.reduce((acc, tab) => {
+            if (!acc[tab.url]) {
+                acc[tab.url] = [];
+            }
+            acc[tab.url].push(tab);
+            return acc;
+        }, {});
+
+        // Filter to only duplicates
+        const duplicates = Object.entries(urlGroups)
+            .filter(([_, tabs]) => tabs.length > 1)
+            .map(([url, tabs]) => ({
+                url,
+                count: tabs.length,
+                tabs: tabs
+            }));
+
+        return duplicates;
+    }
+
+    createDuplicateSection() {
+        const duplicates = this.findDuplicateUrls();
+
+        // Remove existing duplicate section if it exists
+        const existingDuplicateSection = document.getElementById('duplicateSection');
+        if (existingDuplicateSection) {
+            existingDuplicateSection.remove();
+        }
+
+        // If no duplicates, don't create anything
+        if (duplicates.length === 0) return;
+
+        // Create duplicate section
+        const duplicateSection = document.createElement('div');
+        duplicateSection.id = 'duplicateSection';
+        duplicateSection.className = 'bg-yellow-100 p-4 mb-4 rounded';
+
+        const duplicateHeader = document.createElement('h3');
+        duplicateHeader.className = 'text-lg font-bold mb-2 text-yellow-800';
+        duplicateHeader.textContent = `Duplicate URLs Found (${duplicates.length})`;
+        duplicateSection.appendChild(duplicateHeader);
+
+        // Create list of duplicates
+        duplicates.forEach(duplicate => {
+            const duplicateItem = document.createElement('div');
+            duplicateItem.className = 'mb-2 p-2 bg-yellow-200 rounded flex justify-between items-center';
+
+            const duplicateInfo = document.createElement('span');
+            duplicateInfo.innerHTML = `
+            <strong>${duplicate.count} tabs</strong> 
+            <a href="${duplicate.url}" target="_blank" class="text-blue-600 ml-2">${duplicate.url}</a>
+          `;
+
+            const actionButtons = document.createElement('div');
+
+            // Button to show duplicate tabs
+            const showTabsButton = document.createElement('button');
+            showTabsButton.textContent = 'Show Tabs';
+            showTabsButton.className = 'mr-2 bg-blue-500 text-white p-1 rounded';
+            showTabsButton.addEventListener('click', () => {
+                // Highlight or show these specific tabs
+                this.highlightDuplicateTabs(duplicate.tabs);
+            });
+
+            // Button to remove duplicates
+            const removeDuplicatesButton = document.createElement('button');
+            removeDuplicatesButton.textContent = 'Remove Duplicates';
+            removeDuplicatesButton.className = 'bg-red-500 text-white p-1 rounded';
+            removeDuplicatesButton.addEventListener('click', () => {
+                this.removeDuplicateTabs(duplicate.tabs);
+            });
+
+            actionButtons.appendChild(showTabsButton);
+            actionButtons.appendChild(removeDuplicatesButton);
+
+            duplicateItem.appendChild(duplicateInfo);
+            duplicateItem.appendChild(actionButtons);
+
+            duplicateSection.appendChild(duplicateItem);
+        });
+
+        // Insert duplicate section at the top of the popup
+        const tabsListContainer = document.getElementById('tabsList');
+        tabsListContainer.parentNode.insertBefore(duplicateSection, tabsListContainer);
+    }
+
+    highlightDuplicateTabs(duplicateTabs) {
+        // Deselect all tabs first
+        this.tabs.forEach(tab => tab.selected = false);
+
+        // Select and highlight duplicate tabs
+        duplicateTabs.forEach(duplicateTab => {
+            const matchingTab = this.tabs.find(tab => tab.id === duplicateTab.id);
+            if (matchingTab) {
+                matchingTab.selected = true;
+            }
+        });
+
+        // Re-render tabs to show selection
+        this.renderTabs();
+    }
+
+    removeDuplicateTabs(duplicateTabs) {
+        // Keep the first tab, remove others
+        const tabToKeep = duplicateTabs[0];
+        const tabIdsToRemove = duplicateTabs
+            .slice(1)  // Exclude the first tab
+            .map(tab => tab.id);
+
+        // Remove tabs from Chrome
+        tabIdsToRemove.forEach(tabId => chrome.tabs.remove(tabId));
+
+        // Reload tabs to refresh the view
+        this.loadTabs();
     }
 }
 
