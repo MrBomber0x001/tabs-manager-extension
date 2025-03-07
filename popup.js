@@ -66,6 +66,10 @@ class TabManager {
 
                 // Add duplicate detection
                 this.createDuplicateSection();
+
+                // Add tab grouping section
+                this.createTabGroupingSection();
+
                 resolve(this.tabs);
             });
         });
@@ -499,6 +503,209 @@ class TabManager {
 
         // Reload tabs to refresh the view
         this.loadTabs();
+    }
+
+    // TAB GROUPING FUNCTIONALITY
+
+    createTabGroupingSection() {
+        // Remove any existing tab grouping section
+        const existingSection = document.getElementById('tabGroupingSection');
+        if (existingSection) {
+            existingSection.remove();
+        }
+
+        // Get domains with multiple tabs
+        const domainsWithMultipleTabs = Object.entries(this.domainCounts)
+            .filter(([_, count]) => count > 1)
+            .map(([domain, count]) => ({ domain, count }))
+            .sort((a, b) => b.count - a.count);  // Sort by count descending
+
+        // If no domains with multiple tabs, don't create the section
+        if (domainsWithMultipleTabs.length === 0) return;
+
+        // Create the section container
+        const groupingSection = document.createElement('div');
+        groupingSection.id = 'tabGroupingSection';
+        groupingSection.className = 'bg-blue-100 p-4 mb-4 rounded';
+
+        // Add header
+        const header = document.createElement('h3');
+        header.className = 'text-lg font-bold mb-2 text-blue-800';
+        header.textContent = 'Tab Grouping';
+        groupingSection.appendChild(header);
+
+        // Add description
+        const description = document.createElement('p');
+        description.className = 'mb-2 text-blue-700';
+        description.textContent = 'Group tabs by domain for better organization.';
+        groupingSection.appendChild(description);
+
+        // Add "Group All Domains" button
+        const groupAllButton = document.createElement('button');
+        groupAllButton.textContent = 'Group All By Domain';
+        groupAllButton.className = 'bg-blue-500 text-white p-2 rounded mb-4 w-full';
+        groupAllButton.addEventListener('click', () => {
+            this.groupAllTabsByDomain();
+        });
+        groupingSection.appendChild(groupAllButton);
+
+        // Create list of domains that can be grouped
+        const domainList = document.createElement('div');
+        domainList.className = 'max-h-48 overflow-y-auto';
+
+        domainsWithMultipleTabs.forEach(({ domain, count }) => {
+            const domainItem = document.createElement('div');
+            domainItem.className = 'mb-2 p-2 bg-blue-200 rounded flex justify-between items-center';
+
+            const domainInfo = document.createElement('span');
+            domainInfo.innerHTML = `<strong>${domain}</strong> <span class="text-blue-700">(${count} tabs)</span>`;
+
+            const groupButton = document.createElement('button');
+            groupButton.textContent = 'Group Tabs';
+            groupButton.className = 'bg-blue-500 text-white p-1 rounded';
+            groupButton.addEventListener('click', () => {
+                this.groupTabsByDomain(domain);
+            });
+
+            domainItem.appendChild(domainInfo);
+            domainItem.appendChild(groupButton);
+            domainList.appendChild(domainItem);
+        });
+
+        groupingSection.appendChild(domainList);
+
+        // Insert the section at the top of the popup
+        const tabsListContainer = document.getElementById('tabsList');
+        tabsListContainer.parentNode.insertBefore(groupingSection, tabsListContainer);
+    }
+
+    async groupTabsByDomain(domain) {
+        try {
+            // Find all tabs with the specified domain
+            const tabsToGroup = this.tabs.filter(tab => tab.domain === domain);
+
+            if (tabsToGroup.length < 2) {
+                console.log(`Not enough tabs (${tabsToGroup.length}) for domain ${domain} to create a group`);
+                return;
+            }
+
+            const tabIds = tabsToGroup.map(tab => tab.id);
+
+            // Check if a group for this domain already exists
+            const existingGroups = await new Promise(resolve =>
+                chrome.tabGroups.query({ title: domain }, resolve)
+            );
+
+            let groupId;
+
+            if (existingGroups && existingGroups.length > 0) {
+                // Update existing group
+                groupId = existingGroups[0].id;
+                await new Promise(resolve =>
+                    chrome.tabs.group({
+                        groupId: groupId,
+                        tabIds: tabIds
+                    }, resolve)
+                );
+            } else {
+                // Create new group
+                groupId = await new Promise(resolve =>
+                    chrome.tabs.group({ tabIds: tabIds }, resolve)
+                );
+
+                // Assign domain name and a color
+                await new Promise(resolve =>
+                    chrome.tabGroups.update(groupId, {
+                        title: domain,
+                        color: this.getColorForDomain(domain)
+                    }, resolve)
+                );
+            }
+
+            console.log(`Successfully grouped ${tabIds.length} tabs for domain ${domain}`);
+
+            // Refresh the tab list
+            this.loadTabs();
+
+        } catch (error) {
+            console.error(`Error grouping tabs for domain ${domain}:`, error);
+        }
+    }
+
+    // async groupAllTabsByDomain() {
+    //     try {
+    //         // Get all domains with multiple tabs
+    //         const domainsWithMultipleTabs = Object.entries(this.domainCounts)
+    //             .filter(([_, count]) => count > 1)
+    //             .map(([domain]) => domain);
+
+    //         // Group tabs for each domain
+    //         for (const domain of domainsWithMultipleTabs) {
+    //             await this.groupTabsByDomain(domain);
+    //         }
+
+    //         console.log(`Successfully grouped tabs for ${domainsWithMultipleTabs.length} domains`);
+
+    //     } catch (error) {
+    //         console.error('Error grouping all tabs by domain:', error);
+    //     }
+    // }
+
+    async groupTabsByDomain(domain) {
+        try {
+            // Find all tabs with the specified domain
+            const tabsToGroup = this.tabs.filter(tab => tab.domain === domain);
+
+            if (tabsToGroup.length < 2) {
+                console.log(`Not enough tabs (${tabsToGroup.length}) for domain ${domain} to create a group`);
+                return;
+            }
+
+            const tabIds = tabsToGroup.map(tab => tab.id);
+
+            // Create new group directly without checking for existing groups
+            // This avoids the chrome.tabGroups.query that's causing the error
+            const groupId = await new Promise(resolve =>
+                chrome.tabs.group({ tabIds: tabIds }, resolve)
+            );
+
+            // Set the title and color for the group
+            if (chrome.tabGroups && chrome.tabGroups.update) {
+                // Only attempt to update if the tabGroups API is available
+                chrome.tabGroups.update(groupId, {
+                    title: domain,
+                    color: this.getColorForDomain(domain)
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.log("Error updating group:", chrome.runtime.lastError);
+                    }
+                });
+            }
+
+            console.log(`Successfully grouped ${tabIds.length} tabs for domain ${domain}`);
+
+            // Refresh the tab list
+            this.loadTabs();
+
+        } catch (error) {
+            console.error(`Error grouping tabs for domain ${domain}:`, error);
+        }
+    }
+
+    getColorForDomain(domain) {
+        // Chrome offers these colors: "grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan"
+        const colors = ["blue", "red", "yellow", "green", "pink", "purple", "cyan"];
+
+        // Create a simple hash from the domain string
+        let hash = 0;
+        for (let i = 0; i < domain.length; i++) {
+            hash = ((hash << 5) - hash) + domain.charCodeAt(i);
+            hash |= 0; // Convert to 32bit integer
+        }
+
+        // Get a deterministic color from the hash
+        const colorIndex = Math.abs(hash) % colors.length;
+        return colors[colorIndex];
     }
 }
 
