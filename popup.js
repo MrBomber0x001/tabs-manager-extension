@@ -632,24 +632,24 @@ class TabManager {
         }
     }
 
-    // async groupAllTabsByDomain() {
-    //     try {
-    //         // Get all domains with multiple tabs
-    //         const domainsWithMultipleTabs = Object.entries(this.domainCounts)
-    //             .filter(([_, count]) => count > 1)
-    //             .map(([domain]) => domain);
+    async groupAllTabsByDomain() {
+        try {
+            // Get all domains with multiple tabs
+            const domainsWithMultipleTabs = Object.entries(this.domainCounts)
+                .filter(([_, count]) => count > 1)
+                .map(([domain]) => domain);
 
-    //         // Group tabs for each domain
-    //         for (const domain of domainsWithMultipleTabs) {
-    //             await this.groupTabsByDomain(domain);
-    //         }
+            // Group tabs for each domain
+            for (const domain of domainsWithMultipleTabs) {
+                await this.groupTabsByDomain(domain);
+            }
 
-    //         console.log(`Successfully grouped tabs for ${domainsWithMultipleTabs.length} domains`);
+            console.log(`Successfully grouped tabs for ${domainsWithMultipleTabs.length} domains`);
 
-    //     } catch (error) {
-    //         console.error('Error grouping all tabs by domain:', error);
-    //     }
-    // }
+        } catch (error) {
+            console.error('Error grouping all tabs by domain:', error);
+        }
+    }
 
     async groupTabsByDomain(domain) {
         try {
