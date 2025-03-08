@@ -49,6 +49,11 @@ Searching over tabs
 
 ![searching](assets/image2.png)
 
+Ability to group tabs in your browser based on same domain
+
+![image](https://github.com/user-attachments/assets/14189be4-ebb3-41da-9b0a-224122bf0f28)
+
+
 ## Contributing
 
 Guidelines for contributing to the Tabs Manager Extension.
